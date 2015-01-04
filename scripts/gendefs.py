@@ -74,7 +74,7 @@ for lib in [ "libc.so.6", "libm.so.6", "libpthread.so.0" ]:
 
 async_safe_syms = set(open(os.path.join(script_dir, 'async_safe_syms')).read().split('\n'))
 
-syms = filter(lambda s: s not in async_safe_syms, syms)
+syms = filter(lambda s: s[0] not in async_safe_syms, syms)
 syms.sort(key = lambda s: s[0])
 
 syms_no_dups = []
