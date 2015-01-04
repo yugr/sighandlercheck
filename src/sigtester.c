@@ -228,14 +228,16 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
     sigaction_real = dlsym(RTLD_NEXT, "sigaction");
   }
 
+  if(!act)
+    return sigaction_real(signum, act, oldact);
+
   volatile struct sigtester_info *si = &sigtab[signum];
   struct sigaction myact;
 
   int siginfo = (act->sa_flags & SA_SIGINFO) != 0;
   void *handler = siginfo ? (void *)act->sa_sigaction : (void *)act->sa_handler;
 
-  if(act
-      && signum >= 1 && signum < _NSIG
+  if(signum >= 1 && signum < _NSIG
       && handler != SIG_IGN && handler != SIG_DFL && handler != SIG_ERR) {
     si->is_ever_set = 1;
     si->siginfo = siginfo;
