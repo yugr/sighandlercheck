@@ -161,7 +161,7 @@ struct sigtester_info {
     sighandler_t h;
     void (*sa)(int, siginfo_t *, void *);
   } user_handler;
-  int is_ever_set;
+  int is_handled;
   int active;
   int siginfo;
 };
@@ -173,21 +173,38 @@ static inline void sigtester_info_clear(volatile struct sigtester_info *si) {
 
 static volatile struct sigtester_info sigtab[_NSIG];
 
+static int is_interesting_signal(int signum) {
+  switch(signum) {
+  case SIGCHLD:
+  case SIGCONT:
+  case SIGSTOP:
+  case SIGTSTP:
+  case SIGTTIN:
+  case SIGTTOU:
+    return 0;
+  default:
+    return 1;
+  }
+}
+
 static void sigtester_finalize(void) {
   char buf[128];
   int i;
   for(i = 0; i < _NSIG; ++i) {
-    if(!sigtab[i].is_ever_set)
+    if(!sigtab[i].is_handled)
       continue;
+    const char *signum_str = int2str(i, buf, sizeof(buf));
     if(verbose) {
-      const char *signum_str = int2str(i, buf, sizeof(buf));
       SAY("signal ", signum_str, " was handled");
     }
-    if(do_fork_tests) {
+    if(do_fork_tests && is_interesting_signal(i)) {
       pid_t pid = fork();
       if(pid < 0) {
 	DIE("failed to fork test process");
       } else if(pid == 0) {
+        if(verbose) {
+          SAY("sending signal ", signum_str);
+        }
 	raise(i);
 	_exit(0);
       } else {
@@ -257,7 +274,7 @@ EXPORT sighandler_t signal(int signum, sighandler_t handler) {
   if(signum >= 1 && signum < _NSIG
       && handler != SIG_IGN && handler != SIG_DFL && handler != SIG_ERR) {
     si->user_handler.h = handler;
-    si->is_ever_set = 1;
+    si->is_handled = 1;
     si->siginfo = 0;
     handler = sigtester;
   }
@@ -287,7 +304,7 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
 
   if(signum >= 1 && signum < _NSIG
       && handler != SIG_IGN && handler != SIG_DFL && handler != SIG_ERR) {
-    si->is_ever_set = 1;
+    si->is_handled = 1;
     si->siginfo = siginfo;
     if(siginfo)
       si->user_handler.sa = act->sa_sigaction;
