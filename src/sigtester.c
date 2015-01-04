@@ -6,6 +6,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 
 #include "sigtester.h"
 #include "libc.h"
@@ -41,7 +42,10 @@
 // TODO: mind thread safety in all functions
 
 // TODO: should this be TLS?
-static volatile sig_atomic_t signal_depth = 0;
+static volatile int signal_depth = 0;
+
+static int verbose = 0;
+static int do_fork_tests = 0;
 
 static inline void push_signal_context(void) {
   assert(signal_depth >= 0 && "invalid nesting");
@@ -134,6 +138,24 @@ void __attribute__((constructor)) sigtester_init(void) {
   sigtester_initializing = 0;
 }
 
+static void sigtester_finalize(void);
+
+// This performs the rest of initialization
+void __attribute__((constructor)) sigtester_init_final(void) {
+  if(!sigtester_initialized)
+    sigtester_init();
+
+  char *verbose_ = getenv("SIGTESTER_VERBOSE");
+  if(verbose_)
+    verbose = atoi(verbose_);
+
+  char *fork_tests_ = getenv("SIGTESTER_FORK_TESTS");
+  if(fork_tests_ && atoi(fork_tests_))
+    do_fork_tests = 1;
+
+  atexit(sigtester_finalize);
+}
+
 struct sigtester_info {
   union {
     sighandler_t h;
@@ -151,8 +173,34 @@ static inline void sigtester_info_clear(volatile struct sigtester_info *si) {
 
 static volatile struct sigtester_info sigtab[_NSIG];
 
+static void sigtester_finalize(void) {
+  char buf[128];
+  int i;
+  for(i = 0; i < _NSIG; ++i) {
+    if(!sigtab[i].is_ever_set)
+      continue;
+    if(verbose) {
+      const char *signum_str = int2str(i, buf, sizeof(buf));
+      SAY("signal ", signum_str, " was handled");
+    }
+    if(do_fork_tests) {
+      pid_t pid = fork();
+      if(pid < 0) {
+	DIE("failed to fork test process");
+      } else if(pid == 0) {
+	raise(i);
+	_exit(0);
+      } else {
+	if(waitpid(pid, 0, 0) < 0)
+	  DIE("failed to wait for forked test process");
+      }
+    }
+  }
+}
+
 void check_context(const char *name, const char *lib) {
-  //SAY("check_context: ", name, " from ", lib);
+  if(verbose >= 2)
+    SAY("check_context: ", name, " from ", lib);
   if(!signal_depth)
     return;
   // Find active signals
