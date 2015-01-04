@@ -51,7 +51,7 @@ def get_public_funs(lib):
     addr = int("0x" + words[2], 16)
 
     # We intercept signal API separately (and it's async-safe anyway)
-    if re.match(r'^(signal|sigaction)$', name):
+    if re.match(r'^(signal|sysv_signal|bsd_signal|sigaction)$', name):
       continue
 
     # We need these during initialization and error reporting.

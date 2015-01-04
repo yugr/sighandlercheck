@@ -37,26 +37,35 @@
     while(1); \
   } while(0)
 
+// TODO: print stats at exit (what signals intercepted, etc.)
+// TODO: add missing error checks
+// TODO: make sure that interceptors respect errno
+// TODO: mind thread safety in all functions
+
+// TODO: should this be TLS?
 static volatile sig_atomic_t signal_depth = 0;
 
-static inline void enter_signal_context() {
-  // TODO: atomicity? Should this be TLS?
+static inline void push_signal_context() {
   assert(signal_depth >= 0 && "invalid nesting");
-  ++signal_depth;
+  atomic_inc(&signal_depth);
 }
 
-static inline void exit_signal_context() {
-  --signal_depth;
+static inline void pop_signal_context() {
+  atomic_dec(&signal_depth);
   assert(signal_depth >= 0 && "invalid nesting");
 }
 
-uintptr_t libc_base, libm_base, libpthread_base;
+const char *libc_name = "libc-2.19.so",
+  *libm_name = "libm-2.19.so",
+  *libpthread_name = "libpthread-2.19.so";
+uintptr_t libc_base,
+  libm_base,
+  libpthread_base;
 
 int sigtester_initialized = 0,
   sigtester_initializing = 0;
 
-// TODO: what about errno?
-void sigtester_init() {
+void __attribute__((constructor)) sigtester_init() {
   assert(!sigtester_initializing && "recursive init");
   sigtester_initializing = 1;
 
@@ -75,11 +84,11 @@ void sigtester_init() {
     *nl = 0;
 
     uintptr_t *base = 0;
-    if(internal_strstr(buf, "libc-2.19.so") && !libc_base)
+    if(internal_strstr(buf, libc_name) && !libc_base)
       base = &libc_base;
-    else if(internal_strstr(buf, "libm-2.19.so") && !libm_base)
+    else if(internal_strstr(buf, libm_name) && !libm_base)
       base = &libm_base;
-    else if(internal_strstr(buf, "libpthread-2.19.so") && !libpthread_base)
+    else if(internal_strstr(buf, libpthread_name) && !libpthread_base)
       base = &libpthread_base;
 
     if(base) {
@@ -123,22 +132,25 @@ void sigtester_init() {
   sigtester_initializing = 0;
 }
 
-struct signal_info {
-  sighandler_t user_handler;
+struct sigtester_info {
+  union {
+    sighandler_t h;
+    void (*sa)(int, siginfo_t *, void *);
+  } user_handler;
   int is_ever_set;
   int active;
-  // TODO: type (sigaction or signal)
+  int siginfo;
 };
 
-static inline void signal_info_clear(volatile struct signal_info *si) {
-  si->user_handler = 0;
+static inline void sigtester_info_clear(volatile struct sigtester_info *si) {
+  si->user_handler.h = 0;
   si->active = 0;
 }
 
-static volatile struct signal_info sigtab[_NSIG];
+static volatile struct sigtester_info sigtab[_NSIG];
 
 void check_context(const char *name, const char *lib) {
-  SAY("check_context: ", name, " from ", lib);
+  //SAY("check_context: ", name, " from ", lib);
   if(!signal_depth)
     return;
   // Find active signals
@@ -150,54 +162,99 @@ void check_context(const char *name, const char *lib) {
     const char *signum_str = int2str(i, buf, sizeof(buf));
     if(!signum_str)
       DIE("increase buffer size in check_context");
-    SAY("unsafe call in signal handler for ", signum_str, ": ", name, " from ", lib);
+    const char *sig_str = sys_siglist[i];
+    SAY("unsafe call in handler for signal ", signum_str, " (", sig_str, "): ", name, " from ", lib);
   }
 }
 
-void sigtester(int signum) {
-  volatile struct signal_info *si = &sigtab[signum];
-  if(si->user_handler) {
-    // sigtab[signum].user_handler = 0;  Assume SysV semantics?
-    enter_signal_context();
-    si->active = 1;
-    si->is_ever_set = 1;
-    si->user_handler(signum);
-    exit_signal_context();
-    si->active = 0;
-    --signal_depth;
-  } else {
+static void sigtester(int signum) {
+  volatile struct sigtester_info *si = &sigtab[signum];
+  if(si->siginfo || !si->user_handler.h)
     DIE("received signal but no handler");
-  }
+  push_signal_context();
+  si->active = 1;
+  si->user_handler.h(signum);
+  pop_signal_context();
+  si->active = 0;
 }
 
-sighandler_t signal(int signum, sighandler_t handler) {
+static void sigtester_sigaction(int signum, siginfo_t *info, void *ctx) {
+  volatile struct sigtester_info *si = &sigtab[signum];
+  push_signal_context();
+  si->active = 1;
+  if(si->siginfo) {
+    if(!si->user_handler.h)
+      DIE("received signal but no handler");
+    si->user_handler.h(signum);
+  } else {
+    if(!si->user_handler.sa)
+      DIE("received signal but no handler");
+    si->user_handler.sa(signum, info, ctx);
+  }
+  pop_signal_context();
+  si->active = 0;
+}
+
+EXPORT sighandler_t signal(int signum, sighandler_t handler) {
   static sighandler_t (*signal_real)(int signum, sighandler_t handler) = 0;
   if(!signal_real) {
     // Non-atomic but who cares?
     signal_real = dlsym(RTLD_NEXT, "signal");
   }
 
-  if(signum >= _NSIG) {
-    DIE("signal out of bounds");
-  }
+  volatile struct sigtester_info *si = &sigtab[signum];
 
-  volatile struct signal_info *si = &sigtab[signum];
-  if(handler != SIG_IGN && handler != SIG_DFL) {
-    si->user_handler = handler;
+  if(signum >= 1 && signum < _NSIG
+      && handler != SIG_IGN && handler != SIG_DFL && handler != SIG_ERR) {
+    si->user_handler.h = handler;
+    si->is_ever_set = 1;
+    si->siginfo = 0;
     handler = sigtester;
-  } else {
-    signal_info_clear(si);
   }
 
   sighandler_t res = signal_real(signum, handler);
-  if(res == SIG_ERR) {
-    signal_info_clear(si);
-  }
+  if(res == SIG_ERR)
+    si->user_handler.h = 0;
+
   return res;
 }
 
-#if 0
-TODO: int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
-TODO: print stats at exit (what signals intercepted, etc.)
-#endif
+EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
+  static int (*sigaction_real)(int signum, const struct sigaction *act, struct sigaction *oldact) = 0;
+  if(!sigaction_real) {
+    // Non-atomic but who cares?
+    sigaction_real = dlsym(RTLD_NEXT, "sigaction");
+  }
+
+  volatile struct sigtester_info *si = &sigtab[signum];
+  struct sigaction myact;
+
+  int siginfo = (act->sa_flags & SA_SIGINFO) != 0;
+  void *handler = siginfo ? (void *)act->sa_sigaction : (void *)act->sa_handler;
+
+  if(act
+      && signum >= 1 && signum < _NSIG
+      && handler != SIG_IGN && handler != SIG_DFL && handler != SIG_ERR) {
+    si->is_ever_set = 1;
+    si->siginfo = siginfo;
+    if(siginfo)
+      si->user_handler.sa = act->sa_sigaction;
+    else
+      si->user_handler.h = act->sa_handler;
+
+    myact.sa_sigaction = sigtester_sigaction;
+    myact.sa_flags = act->sa_flags | SA_SIGINFO;
+    myact.sa_mask = act->sa_mask;
+    act = &myact;
+  }
+
+  int res = sigaction_real(signum, act, oldact);
+  if(res != 0)
+    si->user_handler.sa = 0;
+
+  return res;
+}
+
+DEFINE_ALIAS(EXPORT sighandler_t sysv_signal(int signum, sighandler_t handler), signal);
+DEFINE_ALIAS(EXPORT sighandler_t bsd_signal(int signum, sighandler_t handler), signal);
 

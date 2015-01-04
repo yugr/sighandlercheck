@@ -35,7 +35,7 @@
     "  call sigtester_init\n"                    \
     "1:\n"                                       \
     "  leaq .LC_name_" #name "(%rip), %rdi\n"    \
-    "  leaq .LC_lib_" #name "(%rip), %rsi\n"     \
+    "  movq " #lib "_name(%rip), %rsi\n"     \
     "  call check_context\n"                     \
     "  popq %r9\n"                               \
     "  .cfi_def_cfa_offset 48\n"                 \
