@@ -13,7 +13,7 @@ rm -f bin/*
 
 scripts/gendefs.py > bin/all_libc_syms.def
 
-CPPFLAGS='-Iinclude -Ibin'
+CPPFLAGS='-Iinclude -Ibin -D_GNU_SOURCE'
 
 CFLAGS='-g -O2'
 CFLAGS="$CFLAGS -Wall -Wextra -Werror"
