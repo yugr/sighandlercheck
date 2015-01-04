@@ -25,5 +25,5 @@ LDFLAGS='-Wl,--no-as-needed -ldl -lm -lpthread'
 gcc -o bin/libsigtester.so src/*.c $CPPFLAGS $CFLAGS $LDFLAGS
 
 # Quick check
-LD_PRELOAD=bin/libsigtester.so ls
+SIGTESTER_VERBOSE=1 LD_PRELOAD=bin/libsigtester.so bash -c 'whoami; whoami'
 
