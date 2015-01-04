@@ -43,16 +43,17 @@
 // TODO: should this be TLS?
 static volatile sig_atomic_t signal_depth = 0;
 
-static inline void push_signal_context() {
+static inline void push_signal_context(void) {
   assert(signal_depth >= 0 && "invalid nesting");
   atomic_inc(&signal_depth);
 }
 
-static inline void pop_signal_context() {
+static inline void pop_signal_context(void) {
   atomic_dec(&signal_depth);
   assert(signal_depth >= 0 && "invalid nesting");
 }
 
+// TODO: we can handle arbitrary list of libs if necessary
 const char *libc_name = "libc-2.19.so",
   *libm_name = "libm-2.19.so",
   *libpthread_name = "libpthread-2.19.so";
@@ -63,12 +64,15 @@ uintptr_t libc_base,
 int sigtester_initialized = 0,
   sigtester_initializing = 0;
 
-void __attribute__((constructor)) sigtester_init() {
+// This initializes data for interceptors so that libc can work
+void __attribute__((constructor)) sigtester_init(void) {
   assert(!sigtester_initializing && "recursive init");
   sigtester_initializing = 1;
 
   // Find base addresses of intercepted libs
 
+  // TODO: sadly we can't check errno for EINTR (it's not yet initialized);
+  // one option is replacing all libc wrapper with internal_syscall
   int fd = open("/proc/self/maps", O_RDONLY);
   if(fd < 0) {
       DIE("failed to open /proc/self/maps");
