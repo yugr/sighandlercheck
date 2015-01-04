@@ -1,0 +1,2 @@
+sigtester: unsafe call in handler for signal 1 (Hangup): __printf_chk from libc-2.19.so
+Hello from myhandler: 1
