@@ -15,7 +15,7 @@ char *internal_strstr(const char *haystack, const char *needle) {
 }
 
 const char *int2str(int value, char *str, size_t size) {
-  int neg = value > 0;
+  int neg = value < 0;
   value = value >= 0 ? value : -value;
 
   if(!size)
