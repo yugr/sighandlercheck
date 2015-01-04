@@ -2,6 +2,8 @@
 
 # Script to find candidate executables.
 
+set -e
+
 is_executable() {
   file "$1" | grep -qF ELF
 }
@@ -19,5 +21,5 @@ for f in $(find /bin /usr/bin -type f -a -executable); do
     num_calls=$(count_signals $f)
     echo "$f: $num_calls"
   fi
-done
+done | sort -t ' ' -rnk2
 
