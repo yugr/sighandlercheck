@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Script to find candidate executables.
+
+is_executable() {
+  file "$1" | grep -qF ELF
+}
+
+does_use_signals() {
+  readelf --dyn-syms -W "$1" | grep -q 'UND.*\<\(signal\|sigaction\)\>'
+}
+
+count_signals() {
+  objdump -d "$1" | grep -c '\<\(signal\|sigaction\)\>'
+}
+
+for f in $(find /bin /usr/bin -type f -a -executable); do
+  if is_executable $f && does_use_signals $f; then
+    num_calls=$(count_signals $f)
+    echo "$f: $num_calls"
+  fi
+done
+
