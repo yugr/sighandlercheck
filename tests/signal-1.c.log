@@ -1,2 +1,3 @@
-sigtester: unsafe call in handler for signal 1 (Hangup): __printf_chk from libc-2.19.so
+sigtester: in handler for signal 1 (Hangup): sigtester: unsafe call __errno_location from libc-2.19.so
+sigtester: in handler for signal 1 (Hangup): sigtester: unsafe call __printf_chk from libc-2.19.so
 Hello from myhandler: 1
