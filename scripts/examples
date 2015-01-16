@@ -4,7 +4,6 @@
 
 cd $(dirname $0)/..
 
-export SIGTESTER_VERBOSE=1
 export SIGTESTER_FORK_TESTS=1
 
 echo '== ls =='
