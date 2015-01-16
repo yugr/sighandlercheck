@@ -1,0 +1,38 @@
+= What is this? =
+
+Sigtester is a small proof-of-concept tool for detecting
+unsafe signal handlers.
+
+The tool works by preloading a DSO (libsigtester.so) to a process.
+The DSO intercepts all (!) libc functions. The interceptors check
+whether they run in unsafe context.
+
+The tool is rather hacky but it was able to detect potential errors
+in popular programs (zip, aspell).
+
+= Usage =
+
+Preload the tool into your app and send it a signal.
+The latter can be automated by setting SIGTESTER_FORK_TESTS
+environment variable to non-zero value.
+
+For debugging, set SIGTESTER_VERBOSE. To reduce the amount
+of clutter, use SIGTESTER_MAX_ERRORS.
+
+For some examples, see scripts/examples.
+
+= Build =
+
+To build the tool, simply run ./build.sh from project top directory.
+
+= Test =
+
+To test the tool, simply run scripts/test.sh from project top directory.
+
+= TODO =
+
+Various TODOs are scattered all over the codebase.
+
+One big thing is running complete distribution with this
+(by putting libsigtester.so to /etc/ld.so.preload).
+
