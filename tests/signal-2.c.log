@@ -1,4 +1,2 @@
-sigtester: in handler for signal 1 (Hangup): sigtester: unsafe call __errno_location from libc-2.19.so
-sigtester: in handler for signal 1 (Hangup): sigtester: unsafe call __errno_location from libc-2.19.so
-sigtester: in handler for signal 1 (Hangup): sigtester: errno not preserved
+sigtester: signal 1 (Hangup): errno not preserved in user handler
 Hello from main!

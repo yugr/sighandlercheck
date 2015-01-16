@@ -13,37 +13,33 @@
 #include "libc.h"
 #include "compiler.h"
 
-#define WRITE_LIT(fd, msg) do { \
-    ssize_t UNUSED n = write((fd), (msg), sizeof(msg)); \
-  } while(0)
-
-#define WRITE_PTR(fd, p) do { \
-    size_t _len = internal_strlen(p); \
-    ssize_t UNUSED _n = write((fd), (p), _len); \
-  } while(0)
+// TODO: make this a function?
 
 #define WRITE(fd, ...) do { \
     const char *_ss[] = { "",##__VA_ARGS__, 0 }, **_p; \
     for(_p = &_ss[0]; *_p; ++_p) { \
-      WRITE_PTR(STDERR_FILENO, *_p); \
+      size_t _len = internal_strlen(*_p); \
+      ssize_t UNUSED _n = write((fd), (*_p), _len); \
     } \
   } while(0)
 
-#define SAY(...) WRITE(STDERR_FILENO, "sigtester: ",##__VA_ARGS__)
+#define SAY_START(...) WRITE(STDERR_FILENO, "sigtester: ",##__VA_ARGS__)
+#define SAY(...) WRITE(STDERR_FILENO,##__VA_ARGS__)
 
 // TODO: syscall exit?
 #define DIE(...) do { \
-    SAY("internal error: ",##__VA_ARGS__, "\n"); \
+    SAY_START("internal error: ",##__VA_ARGS__, "\n"); \
     while(1); \
   } while(0)
 
 // TODO: add missing error checks
 // TODO: mind thread safety in all functions
 
-// TODO: should this be TLS?
 static volatile int signal_depth = 0;
+static volatile int num_errors = 0;
 
 static int verbose = 0;
+static int max_errors = -1;
 static int do_fork_tests = 0;
 
 static inline void push_signal_context(void) {
@@ -141,6 +137,10 @@ void __attribute__((constructor)) sigtester_init_2(void) {
   if(verbose_)
     verbose = atoi(verbose_);
 
+  char *max_errors_ = getenv("SIGTESTER_MAX_ERRORS");
+  if(max_errors_)
+    max_errors = atoi(max_errors_);
+
   char *fork_tests_ = getenv("SIGTESTER_FORK_TESTS");
   if(fork_tests_ && atoi(fork_tests_))
     do_fork_tests = 1;
@@ -191,15 +191,23 @@ static int is_interesting_signal(int signum) {
   }
 }
 
-static void sigtester_finalize(void) {
+static void about_signal(int signum) {
   char buf[128];
+  const char *signum_str = int2str(signum, buf, sizeof(buf));
+  if(!signum_str)
+    DIE("increase buffer size in about_signal");
+  const char *sig_str = sys_siglist[signum];
+  SAY_START("signal ", signum_str, " (", sig_str, "): ");
+}
+
+static void sigtester_finalize(void) {
   int i;
   for(i = 0; i < _NSIG; ++i) {
     if(!sigtab[i].is_handled)
       continue;
-    const char *signum_str = int2str(i, buf, sizeof(buf));
     if(verbose) {
-      SAY("signal ", signum_str, " was handled\n");
+      about_signal(i);
+      SAY("was handled\n");
     }
     if(do_fork_tests && is_interesting_signal(i)) {
       pid_t pid = fork();
@@ -207,7 +215,8 @@ static void sigtester_finalize(void) {
 	DIE("failed to fork test process");
       } else if(pid == 0) {
         if(verbose) {
-          SAY("sending signal ", signum_str, "\n");
+          about_signal(i);
+          SAY("sending\n");
         }
 	raise(i);
 	_exit(0);
@@ -219,18 +228,17 @@ static void sigtester_finalize(void) {
   }
 }
 
-static void about_signal(int signum) {
-  char buf[128];
-  const char *signum_str = int2str(signum, buf, sizeof(buf));
-  if(!signum_str)
-    DIE("increase buffer size in about_signal");
-  const char *sig_str = sys_siglist[signum];
-  SAY("in handler for signal ", signum_str, " (", sig_str, "): ");
+static int do_report_error() {
+  if(max_errors < 0)
+    return 1;
+  if(num_errors >= max_errors)
+    return 0;
+  return atomic_inc(&num_errors) >= max_errors;
 }
 
 void check_context(const char *name, const char *lib) {
   if(verbose >= 2)
-    SAY("check_context: ", name, " from ", lib, "\n");
+    SAY_START("check_context: ", name, " from ", lib, "\n");
   if(!signal_depth)
     return;
   // For all active signals
@@ -238,8 +246,10 @@ void check_context(const char *name, const char *lib) {
   for(i = 0; i < _NSIG; ++i) {
     if(!sigtab[i].active)
      continue;
-    about_signal(i);
-    SAY("unsafe call ", name, " from ", lib, "\n");
+    if(do_report_error()) {
+      about_signal(i);
+      SAY("unsafe call to ", name, " from ", lib, " in user handler\n");
+    }
   }
 }
 
@@ -256,9 +266,9 @@ static void sigtester(int signum) {
   if(!is_deadly_signal(signum))
     errno = BAD_ERRNO;
   si->user_handler.h(signum);
-  if(errno != BAD_ERRNO) {
+  if(errno != BAD_ERRNO && do_report_error()) {
     about_signal(signum);
-    SAY("errno not preserved\n");
+    SAY("errno not preserved in user handler\n");
   }
   errno = old_errno;
   pop_signal_context();
@@ -280,9 +290,9 @@ static void sigtester_sigaction(int signum, siginfo_t *info, void *ctx) {
       DIE("received signal but no handler");
     si->user_handler.sa(signum, info, ctx);
   }
-  if(errno != BAD_ERRNO) {
+  if(errno != BAD_ERRNO && do_report_error()) {
     about_signal(signum);
-    SAY("errno not preserved");
+    SAY("errno not preserved in user handler\n");
   }
   errno = old_errno;
   pop_signal_context();
