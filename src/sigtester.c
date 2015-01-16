@@ -255,9 +255,9 @@ void check_context(const char *name, const char *lib) {
 
 #define BAD_ERRNO 0x12345
 
-static void sigtester(int signum) {
+static void sigtester(int signum, siginfo_t *info, void *ctx) {
   volatile struct sigtester_info *si = &sigtab[signum];
-  if(si->siginfo || !si->user_handler.h)
+  if(!si->user_handler.h)
     DIE("received signal but no handler");
   push_signal_context();
   si->active = 1;
@@ -265,29 +265,9 @@ static void sigtester(int signum) {
   // Check that errno is preserved
   if(!is_deadly_signal(signum))
     errno = BAD_ERRNO;
-  si->user_handler.h(signum);
-  if(errno != BAD_ERRNO && do_report_error()) {
-    about_signal(signum);
-    SAY("errno not preserved in user handler\n");
-  }
-  errno = old_errno;
-  pop_signal_context();
-  si->active = 0;
-}
-
-static void sigtester_sigaction(int signum, siginfo_t *info, void *ctx) {
-  volatile struct sigtester_info *si = &sigtab[signum];
-  push_signal_context();
-  si->active = 1;
-  int old_errno = errno;
-  errno = BAD_ERRNO;
   if(si->siginfo) {
-    if(!si->user_handler.h)
-      DIE("received signal but no handler");
     si->user_handler.h(signum);
   } else {
-    if(!si->user_handler.sa)
-      DIE("received signal but no handler");
     si->user_handler.sa(signum, info, ctx);
   }
   if(errno != BAD_ERRNO && do_report_error()) {
@@ -295,8 +275,8 @@ static void sigtester_sigaction(int signum, siginfo_t *info, void *ctx) {
     SAY("errno not preserved in user handler\n");
   }
   errno = old_errno;
-  pop_signal_context();
   si->active = 0;
+  pop_signal_context();
 }
 
 EXPORT sighandler_t signal(int signum, sighandler_t handler) {
@@ -317,7 +297,7 @@ EXPORT sighandler_t signal(int signum, sighandler_t handler) {
     si->user_handler.h = handler;
     si->is_handled = 1;
     si->siginfo = 0;
-    handler = sigtester;
+    handler = (sighandler_t)sigtester;
   } else {
     si->is_handled = 0;
   }
@@ -358,7 +338,7 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
       si->user_handler.sa = act->sa_sigaction;
     else
       si->user_handler.h = act->sa_handler;
-    myact.sa_sigaction = sigtester_sigaction;
+    myact.sa_sigaction = sigtester;
     myact.sa_flags = act->sa_flags | SA_SIGINFO;
     myact.sa_mask = act->sa_mask;
     act = &myact;
