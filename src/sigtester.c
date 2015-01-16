@@ -66,14 +66,16 @@ int sigtester_initialized = 0,
   sigtester_initializing = 0;
 
 // This initializes data for interceptors so that libc can work
-void __attribute__((constructor)) sigtester_init(void) {
+void __attribute__((constructor)) sigtester_init_1(void) {
   assert(!sigtester_initializing && "recursive init");
   sigtester_initializing = 1;
 
   // Find base addresses of intercepted libs
 
   // TODO: sadly we can't check errno for EINTR (it's not yet initialized);
-  // one option is replacing all libc wrapper with internal_syscall
+  // one option is replacing all libc wrapper with internal_syscall.
+  // Actually this may not be a problem, as signals are not delivered during
+  // syscall in modern kernels (?).
   int fd = open("/proc/self/maps", O_RDONLY);
   if(fd < 0) {
       DIE("failed to open /proc/self/maps");
@@ -132,9 +134,9 @@ void __attribute__((constructor)) sigtester_init(void) {
 static void sigtester_finalize(void);
 
 // This performs the rest of initialization
-void __attribute__((constructor)) sigtester_init_final(void) {
+void __attribute__((constructor)) sigtester_init_2(void) {
   if(!sigtester_initialized)
-    sigtester_init();
+    sigtester_init_1();
 
   char *verbose_ = getenv("SIGTESTER_VERBOSE");
   if(verbose_)
