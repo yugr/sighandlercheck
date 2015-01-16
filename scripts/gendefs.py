@@ -86,7 +86,7 @@ out = sys.argv[1]
 
 (libroot, libver) = find_glibc()
 
-# TODO: other parts of glibc (libdl, etc.)?
+# TODO: other parts of glibc: crypt, resolv, dl, rt, nss*, nsl, etc.)?
 libs = map(
   lambda lib: (lib, '%s-%s.so' % (lib, libver)),
   ['libc', 'libm', 'libpthread']
@@ -96,7 +96,10 @@ syms = []
 for (lib, filename) in libs:
   syms += get_public_funs(lib, os.path.join(libroot, filename))
 
-async_safe_syms = set(open(os.path.join(script_dir, 'async_safe_syms')).read().split('\n'))
+async_safe_syms = open(os.path.join(script_dir, 'async_safe_syms')).read().split('\n')
+async_safe_syms = filter(lambda s: s, async_safe_syms)
+async_safe_syms = filter(lambda s: s[0] != '#', async_safe_syms)
+async_safe_syms = set(async_safe_syms)
 
 syms = filter(lambda s: s[0] not in async_safe_syms, syms)
 syms.sort(key = lambda s: s[0])
