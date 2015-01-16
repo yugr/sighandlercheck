@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 
-#include "sigtester.h"
+#include "sigcheck.h"
 #include "libc.h"
 #include "compiler.h"
 

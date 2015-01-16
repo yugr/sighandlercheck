@@ -1,4 +1,4 @@
-#include "sigtester.h"
+#include "sigcheck.h"
 
 #ifdef __x86_64__
 // Notes:
