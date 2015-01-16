@@ -37,9 +37,7 @@
     while(1); \
   } while(0)
 
-// TODO: print stats at exit (what signals intercepted, etc.)
 // TODO: add missing error checks
-// TODO: make sure that interceptors respect errno
 // TODO: mind thread safety in all functions
 
 // TODO: should this be TLS?

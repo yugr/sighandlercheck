@@ -50,7 +50,7 @@ def get_public_funs(lib, filename):
       continue
 
     # Skip internal functions
-    if re.search(r'GLIBC_PRIVATE|^__libc_', line):
+    if re.search(r'GLIBC_PRIVATE|^__libc_|__errno_location', line):
       continue
 
     # Only consider default version
