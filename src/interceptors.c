@@ -29,10 +29,10 @@
     "  pushq %r9\n"                              \
     "  .cfi_def_cfa_offset 56\n"                 \
     "  .cfi_offset 9, -56\n"                     \
-    "  movl sigtester_initialized(%rip), %eax\n" \
+    "  movl sigcheck_initialized(%rip), %eax\n" \
     "  testl %eax, %eax\n"                       \
     "  jne 1f\n"                                 \
-    "  call sigtester_init_1\n"                  \
+    "  call sigcheck_init_1\n"                  \
     "1:\n"                                       \
     "  leaq .LC_name_" #name "(%rip), %rdi\n"    \
     "  movq " #lib "_name(%rip), %rsi\n"     \

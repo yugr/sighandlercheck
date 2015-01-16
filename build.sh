@@ -22,8 +22,8 @@ CFLAGS="$CFLAGS -fvisibility=hidden -fPIC -shared"
 
 LDFLAGS='-Wl,--no-as-needed -ldl -lm -lpthread'
 
-gcc -o bin/libsigtester.so src/*.c $CPPFLAGS $CFLAGS $LDFLAGS
+gcc -o bin/libsigcheck.so src/*.c $CPPFLAGS $CFLAGS $LDFLAGS
 
 # Quick check
-SIGTESTER_VERBOSE=1 LD_PRELOAD=bin/libsigtester.so bash -c 'whoami; whoami'
+SIGCHECK_VERBOSE=1 LD_PRELOAD=bin/libsigcheck.so bash -c 'whoami; whoami'
 

@@ -23,7 +23,7 @@
     } \
   } while(0)
 
-#define SAY_START(...) WRITE(STDERR_FILENO, "sigtester: ",##__VA_ARGS__)
+#define SAY_START(...) WRITE(STDERR_FILENO, "sigcheck: ",##__VA_ARGS__)
 #define SAY(...) WRITE(STDERR_FILENO,##__VA_ARGS__)
 
 // TODO: syscall exit?
@@ -57,13 +57,13 @@ static inline void pop_signal_context(void) {
   const char * name ## _name = filename;
 #include "all_libc_libs.def"
 
-int sigtester_initialized = 0,
-  sigtester_initializing = 0;
+int sigcheck_initialized = 0,
+  sigcheck_initializing = 0;
 
 // This initializes data for interceptors so that libc can work
-void __attribute__((constructor)) sigtester_init_1(void) {
-  assert(!sigtester_initializing && "recursive init");
-  sigtester_initializing = 1;
+void __attribute__((constructor)) sigcheck_init_1(void) {
+  assert(!sigcheck_initializing && "recursive init");
+  sigcheck_initializing = 1;
 
   // Find base addresses of intercepted libs
 
@@ -122,33 +122,33 @@ void __attribute__((constructor)) sigtester_init_1(void) {
   if(!name ## _base) DIE(#name " not found");
 #include "all_libc_libs.def"
 
-  sigtester_initialized = 1;
-  sigtester_initializing = 0;
+  sigcheck_initialized = 1;
+  sigcheck_initializing = 0;
 }
 
-static void sigtester_finalize(void);
+static void sigcheck_finalize(void);
 
 // This performs the rest of initialization
-void __attribute__((constructor)) sigtester_init_2(void) {
-  if(!sigtester_initialized)
-    sigtester_init_1();
+void __attribute__((constructor)) sigcheck_init_2(void) {
+  if(!sigcheck_initialized)
+    sigcheck_init_1();
 
-  char *verbose_ = getenv("SIGTESTER_VERBOSE");
+  char *verbose_ = getenv("SIGCHECK_VERBOSE");
   if(verbose_)
     verbose = atoi(verbose_);
 
-  char *max_errors_ = getenv("SIGTESTER_MAX_ERRORS");
+  char *max_errors_ = getenv("SIGCHECK_MAX_ERRORS");
   if(max_errors_)
     max_errors = atoi(max_errors_);
 
-  char *fork_tests_ = getenv("SIGTESTER_FORK_TESTS");
+  char *fork_tests_ = getenv("SIGCHECK_FORK_TESTS");
   if(fork_tests_ && atoi(fork_tests_))
     do_fork_tests = 1;
 
-  atexit(sigtester_finalize);
+  atexit(sigcheck_finalize);
 }
 
-struct sigtester_info {
+struct sigcheck_info {
   union {
     sighandler_t h;
     void (*sa)(int, siginfo_t *, void *);
@@ -158,12 +158,12 @@ struct sigtester_info {
   int siginfo;
 };
 
-static inline void sigtester_info_clear(volatile struct sigtester_info *si) {
+static inline void sigcheck_info_clear(volatile struct sigcheck_info *si) {
   si->user_handler.h = 0;
   si->active = 0;
 }
 
-static volatile struct sigtester_info sigtab[_NSIG];
+static volatile struct sigcheck_info sigtab[_NSIG];
 
 static int is_deadly_signal(int signum) {
   switch(signum) {
@@ -200,7 +200,7 @@ static void about_signal(int signum) {
   SAY_START("signal ", signum_str, " (", sig_str, "): ");
 }
 
-static void sigtester_finalize(void) {
+static void sigcheck_finalize(void) {
   int i;
   for(i = 0; i < _NSIG; ++i) {
     if(!sigtab[i].is_handled)
@@ -255,8 +255,8 @@ void check_context(const char *name, const char *lib) {
 
 #define BAD_ERRNO 0x12345
 
-static void sigtester(int signum, siginfo_t *info, void *ctx) {
-  volatile struct sigtester_info *si = &sigtab[signum];
+static void sigcheck(int signum, siginfo_t *info, void *ctx) {
+  volatile struct sigcheck_info *si = &sigtab[signum];
   if(!si->user_handler.h)
     DIE("received signal but no handler");
   push_signal_context();
@@ -286,9 +286,9 @@ EXPORT sighandler_t signal(int signum, sighandler_t handler) {
     signal_real = dlsym(RTLD_NEXT, "signal");
   }
 
-  volatile struct sigtester_info *si = &sigtab[signum];
+  volatile struct sigcheck_info *si = &sigtab[signum];
 
-  struct sigtester_info si_old = *si;
+  struct sigcheck_info si_old = *si;
 
   if(handler == SIG_ERR || signum < 1 || signum >= _NSIG)
     return signal_real(signum, handler);
@@ -297,7 +297,7 @@ EXPORT sighandler_t signal(int signum, sighandler_t handler) {
     si->user_handler.h = handler;
     si->is_handled = 1;
     si->siginfo = 0;
-    handler = (sighandler_t)sigtester;
+    handler = (sighandler_t)sigcheck;
   } else {
     si->is_handled = 0;
   }
@@ -319,8 +319,8 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
   if(!act)
     return sigaction_real(signum, act, oldact);
 
-  volatile struct sigtester_info *si = &sigtab[signum];
-  struct sigtester_info si_old = *si;
+  volatile struct sigcheck_info *si = &sigtab[signum];
+  struct sigcheck_info si_old = *si;
 
   struct sigaction myact;
 
@@ -338,7 +338,7 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
       si->user_handler.sa = act->sa_sigaction;
     else
       si->user_handler.h = act->sa_handler;
-    myact.sa_sigaction = sigtester;
+    myact.sa_sigaction = sigcheck;
     myact.sa_flags = act->sa_flags | SA_SIGINFO;
     myact.sa_mask = act->sa_mask;
     act = &myact;

@@ -1,49 +1,49 @@
 #!/bin/sh
 
-# Sigtest example programs.
+# Sigcheck examples.
 
 cd $(dirname $0)/..
 
-export SIGTESTER_FORK_TESTS=1
+export SIGCHECK_FORK_TESTS=1
 
 echo '== ls =='
-LD_PRELOAD=bin/libsigtester.so ls
+LD_PRELOAD=bin/libsigcheck.so ls
 
 echo '== bash =='
-LD_PRELOAD=bin/libsigtester.so bash -c 'whoami; whoami'
+LD_PRELOAD=bin/libsigcheck.so bash -c 'whoami; whoami'
 
 echo '== dash =='
-LD_PRELOAD=bin/libsigtester.so dash -c 'whoami; whoami'
+LD_PRELOAD=bin/libsigcheck.so dash -c 'whoami; whoami'
 
 echo '== tar =='
 touch 1
-LD_PRELOAD=bin/libsigtester.so tar -czf 1.tgz 1
+LD_PRELOAD=bin/libsigcheck.so tar -czf 1.tgz 1
 rm -f 1.tgz 1
 
 echo '== info =='
-LD_PRELOAD=bin/libsigtester.so info bash > /dev/null
+LD_PRELOAD=bin/libsigcheck.so info bash > /dev/null
 
 echo '== strace =='
-LD_PRELOAD=bin/libsigtester.so strace ls > /dev/null 2>&1
+LD_PRELOAD=bin/libsigcheck.so strace ls > /dev/null 2>&1
 
 echo '== git =='
-LD_PRELOAD=bin/libsigtester.so git branch > /dev/null
+LD_PRELOAD=bin/libsigcheck.so git branch > /dev/null
 
 echo '== ssh-keygen =='
-LD_PRELOAD=bin/libsigtester.so ssh-keygen -t rsa -f tmp.dat -N '' > /dev/null
+LD_PRELOAD=bin/libsigcheck.so ssh-keygen -t rsa -f tmp.dat -N '' > /dev/null
 rm -f tmp.dat*
 
 echo '== zip =='
 touch 1
-LD_PRELOAD=bin/libsigtester.so zip 1.zip 1 > /dev/null
+LD_PRELOAD=bin/libsigcheck.so zip 1.zip 1 > /dev/null
 rm -f 1 1.zip
 
 echo '== wget =='
-LD_PRELOAD=bin/libsigtester.so wget 'http://google.ru' > /dev/null
+LD_PRELOAD=bin/libsigcheck.so wget 'http://google.ru' > /dev/null
 rm -f index.html
 
 echo '== aspell =='
 echo 'Hello world' > 1
-LD_PRELOAD=bin/libsigtester.so aspell -c 1 > /dev/null
+LD_PRELOAD=bin/libsigcheck.so aspell -c 1 > /dev/null
 rm -f 1
 
