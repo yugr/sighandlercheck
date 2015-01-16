@@ -87,6 +87,7 @@ out = sys.argv[1]
 (libroot, libver) = find_glibc()
 
 # TODO: other parts of glibc: crypt, resolv, dl, rt, nss*, nsl, etc.)?
+# See http://www.faqs.org/docs/linux_scratch/appendixa/glibc.html
 libs = map(
   lambda lib: (lib, '%s-%s.so' % (lib, libver)),
   ['libc', 'libm', 'libpthread']
