@@ -15,16 +15,33 @@ def error(msg):
   sys.stderr.write('error: %s\n' % msg)
   sys.exit(1)
 
-def get_public_funs(lib):
-  p = subprocess.Popen(
-    ['readelf', '--dyn-syms', '-W', lib], 
-    stdout = subprocess.PIPE
-  )
-  (stdout, stderr) = p.communicate()
+def safe_run(cmd):
+  p = subprocess.Popen(cmd, stdout = subprocess.PIPE)
+  res = p.communicate()
   if p.returncode != 0:
-    error("readelf failed: %s" % stderr)
+    (_, stderr) = res
+    error("%s failed: %s" % (cmd[0], stderr))
+  return res
 
-  prefix = re.sub(r'^([a-zA-Z0-9_]+).*$', '\\1', os.path.basename(lib))
+def find_glibc():
+  (stdout, stderr) = safe_run(['ldd', '/bin/sh'])
+  libc_name = 'libc.so.6'
+  for line in stdout.split('\n'):
+    idx = line.find(libc_name + ' => ')
+    if idx == -1:
+      continue
+    # libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fab5a92f000)
+    lib = line[idx:].split(' ')[2]
+    root = os.path.dirname(lib)
+    link = os.readlink(lib)
+    if not link:
+      error('failed to readlink %s' % link)
+    ver = re.findall(r'[0-9]+\.[0-9]+', link)[0]
+    return (root, ver)
+  error('failed to locate ' + libc_name)
+
+def get_public_funs(lib, filename):
+  (stdout, stderr) = safe_run(['readelf', '--dyn-syms', '-W', filename])
 
   res = []
   for line in stdout.split('\n'):
@@ -59,18 +76,25 @@ def get_public_funs(lib):
     if re.match(r'^(open|close|read|write)$', name):
       continue
 
-    res.append((name, addr, prefix))
+    res.append((name, addr, lib))
 
   return res
 
-# TODO: is there automated way to do this?
-#libroot = "/lib/i386-linux-gnu/i686/cmov"
-libroot = "/lib/x86_64-linux-gnu"
+if len(sys.argv) != 2:
+  error('invalid syntax')
+out = sys.argv[1]
+
+(libroot, libver) = find_glibc()
+
+# TODO: other parts of glibc (libdl, etc.)?
+libs = map(
+  lambda lib: (lib, '%s-%s.so' % (lib, libver)),
+  ['libc', 'libm', 'libpthread']
+)
 
 syms = []
-for lib in [ "libc.so.6", "libm.so.6", "libpthread.so.0" ]:
-#for lib in [ "libc.so.6", "libm.so.6"]:
-  syms += get_public_funs(os.path.join(libroot, lib))
+for (lib, filename) in libs:
+  syms += get_public_funs(lib, os.path.join(libroot, filename))
 
 async_safe_syms = set(open(os.path.join(script_dir, 'async_safe_syms')).read().split('\n'))
 
@@ -82,7 +106,25 @@ for i in range(0, len(syms)):
   if not syms_no_dups or syms_no_dups[-1][0] != syms[i][0]:
     syms_no_dups.append(syms[i])
 
+f = open(os.path.join(out, 'all_libc_syms.def'), 'w')
+f.write('''
+#ifndef SYMBOL
+#error You must define SYMBOL(name, addr, lib)
+#endif
+''')
 for (name, addr, lib) in syms_no_dups:
-  print "SYMBOL(%s, 0x%x, %s)" % (name, addr, lib)
-print "#undef SYMBOL"
+  f.write("SYMBOL(%s, 0x%x, %s)\n" % (name, addr, lib))
+f.write("#undef SYMBOL\n")
+f.close()
+
+f = open(os.path.join(out, 'all_libc_libs.def'), 'w')
+f.write('''
+#ifndef LIBRARY
+#error You must define LIBRARY(name, filename)
+#endif
+''')
+for (name, filename) in libs:
+  f.write('LIBRARY(%s, "%s")\n' % (name, filename))
+f.write('#undef LIBRARY\n')
+f.close()
 

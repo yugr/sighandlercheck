@@ -57,13 +57,10 @@ static inline void pop_signal_context(void) {
   assert(signal_depth >= 0 && "invalid nesting");
 }
 
-// TODO: we can handle arbitrary list of libs if necessary
-const char *libc_name = "libc-2.19.so",
-  *libm_name = "libm-2.19.so",
-  *libpthread_name = "libpthread-2.19.so";
-uintptr_t libc_base,
-  libm_base,
-  libpthread_base;
+#define LIBRARY(name, filename) \
+  uintptr_t name ## _base; \
+  const char * name ## _name = filename;
+#include "all_libc_libs.def"
 
 int sigtester_initialized = 0,
   sigtester_initializing = 0;
@@ -90,12 +87,12 @@ void __attribute__((constructor)) sigtester_init(void) {
     *nl = 0;
 
     uintptr_t *base = 0;
-    if(internal_strstr(buf, libc_name) && !libc_base)
-      base = &libc_base;
-    else if(internal_strstr(buf, libm_name) && !libm_base)
-      base = &libm_base;
-    else if(internal_strstr(buf, libpthread_name) && !libpthread_base)
-      base = &libpthread_base;
+#define LIBRARY(name, filename) \
+  if(internal_strstr(buf, filename) && !name ## _base) \
+    base = &name ## _base; \
+  else
+#include "all_libc_libs.def"
+    {}
 
     if(base) {
       // 7f438376c000-7f4383928000 r-xp 00000000 08:01 659498    /lib/x86_64-linux-gnu/libc-2.19.so
@@ -124,15 +121,9 @@ void __attribute__((constructor)) sigtester_init(void) {
 
   close(fd);
 
-  if(!libc_base) {
-     DIE("libc not found");
-  }
-  if(!libm_base) {
-     DIE("libm not found");
-  }
-  if(!libpthread_base) {
-     DIE("libpthread not found");
-  }
+#define LIBRARY(name, filename) \
+  if(!name ## _base) DIE(#name " not found");
+#include "all_libc_libs.def"
 
   sigtester_initialized = 1;
   sigtester_initializing = 0;
@@ -271,17 +262,23 @@ EXPORT sighandler_t signal(int signum, sighandler_t handler) {
 
   volatile struct sigtester_info *si = &sigtab[signum];
 
-  if(signum >= 1 && signum < _NSIG
-      && handler != SIG_IGN && handler != SIG_DFL && handler != SIG_ERR) {
+  struct sigtester_info si_old = *si;
+
+  if(handler == SIG_ERR || signum < 1 || signum >= _NSIG)
+    return signal_real(signum, handler);
+
+  if (handler != SIG_IGN && handler != SIG_DFL) {
     si->user_handler.h = handler;
     si->is_handled = 1;
     si->siginfo = 0;
     handler = sigtester;
+  } else {
+    si->is_handled = 0;
   }
 
   sighandler_t res = signal_real(signum, handler);
   if(res == SIG_ERR)
-    si->user_handler.h = 0;
+    *si = si_old;
 
   return res;
 }
@@ -297,29 +294,35 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
     return sigaction_real(signum, act, oldact);
 
   volatile struct sigtester_info *si = &sigtab[signum];
+  struct sigtester_info si_old = *si;
+
   struct sigaction myact;
 
   int siginfo = (act->sa_flags & SA_SIGINFO) != 0;
   void *handler = siginfo ? (void *)act->sa_sigaction : (void *)act->sa_handler;
 
-  if(signum >= 1 && signum < _NSIG
-      && handler != SIG_IGN && handler != SIG_DFL && handler != SIG_ERR) {
+  if(handler == SIG_ERR || signum < 1 || signum >= _NSIG)
+    return sigaction_real(signum, act, oldact);
+
+  if (handler != SIG_IGN && handler != SIG_DFL) {
+    si->user_handler.h = handler;
     si->is_handled = 1;
     si->siginfo = siginfo;
     if(siginfo)
       si->user_handler.sa = act->sa_sigaction;
     else
       si->user_handler.h = act->sa_handler;
-
     myact.sa_sigaction = sigtester_sigaction;
     myact.sa_flags = act->sa_flags | SA_SIGINFO;
     myact.sa_mask = act->sa_mask;
     act = &myact;
+  } else {
+    si->is_handled = 0;
   }
 
   int res = sigaction_real(signum, act, oldact);
   if(res != 0)
-    si->user_handler.sa = 0;
+    *si = si_old;
 
   return res;
 }

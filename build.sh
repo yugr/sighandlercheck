@@ -11,7 +11,7 @@ cd $(dirname $0)
 mkdir -p bin
 rm -f bin/*
 
-scripts/gendefs.py > bin/all_libc_syms.def
+scripts/gendefs.py bin/
 
 CPPFLAGS='-Iinclude -Ibin -D_GNU_SOURCE'
 
