@@ -18,6 +18,7 @@ static int sigcheck_fd = -1;
 int sigcheck_initialized = 0,
   sigcheck_initializing = 0;
 
+// TODO: better verbose prints.
 // TODO: make this a function?
 
 #define WRITE(...) do { \
@@ -191,6 +192,8 @@ static int is_deadly_signal(int signum) {
 
 static int is_interesting_signal(int signum) {
   switch(signum) {
+  // TODO: I mainly disabled these to get bash working;
+  // perhaps enable these at some point.
   case SIGCHLD:
   case SIGCONT:
   case SIGSTOP:
