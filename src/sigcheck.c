@@ -266,9 +266,9 @@ static void sigcheck(int signum, siginfo_t *info, void *ctx) {
   if(!is_deadly_signal(signum))
     errno = BAD_ERRNO;
   if(si->siginfo) {
-    si->user_handler.h(signum);
-  } else {
     si->user_handler.sa(signum, info, ctx);
+  } else {
+    si->user_handler.h(signum);
   }
   if(errno != BAD_ERRNO && do_report_error()) {
     about_signal(signum);
