@@ -156,6 +156,7 @@ void __attribute__((constructor)) sigcheck_init_2(void) {
   if(fork_tests_ && atoi(fork_tests_))
     do_fork_tests = 1;
 
+  // TODO: can we force this to be run _before_ all other handlers?
   atexit(sigcheck_finalize);
 }
 
@@ -301,15 +302,23 @@ EXPORT sighandler_t signal(int signum, sighandler_t handler) {
 
   struct sigcheck_info si_old = *si;
 
-  if(handler == SIG_ERR || signum < 1 || signum >= _NSIG)
+  if(handler == SIG_ERR || signum < 1 || signum >= _NSIG || handler == (void *)sigcheck)
     return signal_real(signum, handler);
 
   if (handler != SIG_IGN && handler != SIG_DFL) {
+    if(verbose) {
+      about_signal(signum);
+      SAY("setting up a handler\n");
+    }
     si->user_handler.h = handler;
     si->is_handled = 1;
     si->siginfo = 0;
     handler = (sighandler_t)sigcheck;
   } else {
+    if(verbose) {
+      about_signal(signum);
+      SAY("clearing a handler\n");
+    }
     si->is_handled = 0;
   }
 
@@ -338,10 +347,14 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
   int siginfo = (act->sa_flags & SA_SIGINFO) != 0;
   void *handler = siginfo ? (void *)act->sa_sigaction : (void *)act->sa_handler;
 
-  if(handler == SIG_ERR || signum < 1 || signum >= _NSIG)
+  if(handler == SIG_ERR || signum < 1 || signum >= _NSIG || handler == sigcheck)
     return sigaction_real(signum, act, oldact);
 
   if (handler != SIG_IGN && handler != SIG_DFL) {
+    if(verbose) {
+      about_signal(signum);
+      SAY("setting up a handler\n");
+    }
     si->user_handler.h = handler;
     si->is_handled = 1;
     si->siginfo = siginfo;
@@ -354,6 +367,10 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
     myact.sa_mask = act->sa_mask;
     act = &myact;
   } else {
+    if(verbose) {
+      about_signal(signum);
+      SAY("clearing a handler\n");
+    }
     si->is_handled = 0;
   }
 
