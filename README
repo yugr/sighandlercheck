@@ -38,3 +38,6 @@ Various TODOs are scattered all over the codebase.
 One big thing is running complete distribution with this
 (by putting libsigcheck.so to /etc/ld.so.preload).
 
+There is also a big question about design (basically whether all this should be rewritten
+to use uprobes).
+
