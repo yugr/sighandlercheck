@@ -2,7 +2,7 @@
 
 cd $(dirname $0)/..
 
-SIGCHECK=bin/libsigcheck.so
+SIGCHECK=$PWD/bin/libsigcheck.so
 CFLAGS='-g -O2 -Wall -Wextra -Werror'
 
 status=0
