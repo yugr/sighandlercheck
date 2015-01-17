@@ -1,2 +1,2 @@
-sigcheck: signal 1 (Hangup): unsafe call to __printf_chk from libc-2.19.so in user handler
+sigcheck (pid PID): signal 1 (Hangup): unsafe call to __printf_chk from libc-2.19.so in user handler
 Hello from myhandler: 1

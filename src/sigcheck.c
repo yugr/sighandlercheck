@@ -13,18 +13,28 @@
 #include "libc.h"
 #include "compiler.h"
 
+static int sigcheck_fd = -1;
+
+int sigcheck_initialized = 0,
+  sigcheck_initializing = 0;
+
 // TODO: make this a function?
 
-#define WRITE(fd, ...) do { \
+#define WRITE(...) do { \
     const char *_ss[] = { "",##__VA_ARGS__, 0 }, **_p; \
     for(_p = &_ss[0]; *_p; ++_p) { \
+      int _fd = sigcheck_fd >= 0 ? sigcheck_fd : STDERR_FILENO; \
       size_t _len = internal_strlen(*_p); \
-      ssize_t UNUSED _n = write((fd), (*_p), _len); \
+      ssize_t UNUSED _n = write(_fd, *_p, _len); \
     } \
   } while(0)
 
-#define SAY_START(...) WRITE(STDERR_FILENO, "sigcheck: ",##__VA_ARGS__)
-#define SAY(...) WRITE(STDERR_FILENO,##__VA_ARGS__)
+#define SAY_START(...) do { \
+    char buf[128]; \
+    const char *pid = sigcheck_initialized ? int2str((int)getpid(), buf, sizeof(buf)) : "???"; \
+    WRITE("sigcheck (pid ", pid, "): ",##__VA_ARGS__); \
+  } while(0)
+#define SAY(...) WRITE(__VA_ARGS__)
 
 // TODO: syscall exit?
 #define DIE(...) do { \
@@ -56,9 +66,6 @@ static inline void pop_signal_context(void) {
   uintptr_t name ## _base; \
   const char * name ## _name = filename;
 #include "all_libc_libs.def"
-
-int sigcheck_initialized = 0,
-  sigcheck_initializing = 0;
 
 // This initializes data for interceptors so that libc can work
 void __attribute__((constructor)) sigcheck_init_1(void) {
@@ -132,6 +139,10 @@ static void sigcheck_finalize(void);
 void __attribute__((constructor)) sigcheck_init_2(void) {
   if(!sigcheck_initialized)
     sigcheck_init_1();
+
+  char *sigcheck_fd_ = getenv("SIGCHECK_OUTPUT_FILENO");
+  if(sigcheck_fd_)
+    sigcheck_fd = atoi(sigcheck_fd_);
 
   char *verbose_ = getenv("SIGCHECK_VERBOSE");
   if(verbose_)
@@ -207,7 +218,7 @@ static void sigcheck_finalize(void) {
       continue;
     if(verbose) {
       about_signal(i);
-      SAY("was handled\n");
+      SAY("is handled\n");
     }
     if(do_fork_tests && is_interesting_signal(i)) {
       pid_t pid = fork();
@@ -216,7 +227,7 @@ static void sigcheck_finalize(void) {
       } else if(pid == 0) {
         if(verbose) {
           about_signal(i);
-          SAY("sending\n");
+          SAY("sending in forked process\n");
         }
 	raise(i);
 	_exit(0);

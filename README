@@ -16,8 +16,10 @@ Preload the tool into your app and send it a signal.
 The latter can be automated by setting SIGCHECK_FORK_TESTS
 environment variable to non-zero value.
 
-For debugging, set SIGCHECK_VERBOSE. To reduce the amount
-of clutter, use SIGCHECK_MAX_ERRORS.
+Other influential environment variables:
+* SIGCHECK_VERBOSE       - print debug info
+* SIGCHECK_MAX_ERRORS    - limit number of reported errors
+* SIGCHECK_OUTPUT_FILENO - output file descriptor (TODO: make this a filename?)
 
 For some examples, see scripts/examples.
 

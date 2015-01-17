@@ -1,2 +1,2 @@
-sigcheck: signal 1 (Hangup): errno not preserved in user handler
+sigcheck (pid PID): signal 1 (Hangup): errno not preserved in user handler
 Hello from main!
