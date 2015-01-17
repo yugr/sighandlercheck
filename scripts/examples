@@ -6,49 +6,66 @@ cd $(dirname $0)/..
 
 LIBSIGCHECK=$PWD/bin/libsigcheck.so
 
+runtest() {
+  echo "$ $@"
+  SIGCHECK_FORK_TESTS=1 SIGCHECK_OUTPUT_FILENO=3 \
+    LD_PRELOAD=$PWD/bin/libsigcheck.so \
+    "$@" 3>&1 >/dev/null 2>&1
+}
+
 export SIGCHECK_FORK_TESTS=1
 
-echo '== ls =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so ls
+runtest ls
 
-echo '== bash =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so bash -c 'whoami; whoami'
+runtest bash -c 'whoami; whoami'
 
-echo '== dash =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so dash -c 'whoami; whoami'
+runtest dash -c 'whoami; whoami'
 
-echo '== tar =='
 touch 1
-LD_PRELOAD=$PWD/bin/libsigcheck.so tar -czf 1.tgz 1
-rm -f 1.tgz 1
+runtest tar czf 1.tgz 1
+runtest tar cjf 1.tar.bz2 1
+runtest tar cJf 1.tar.xz 1
+rm -f 1.tgz 1.tar.bz2 1.tar.xz 1
 
-echo '== man =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so /usr/bin/man bash > /dev/null
+runtest /usr/bin/man bash
 
-echo '== info =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so info bash > /dev/null
+runtest info bash
 
-echo '== strace =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so strace ls > /dev/null 2>&1
+runtest strace ls
 
-echo '== git =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so git branch > /dev/null
+runtest git branch
 
-echo '== ssh-keygen =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so ssh-keygen -t rsa -f tmp.dat -N '' > /dev/null
+runtest ssh-keygen -t rsa -f tmp.dat -N ''
 rm -f tmp.dat*
 
-echo '== zip =='
 touch 1
-LD_PRELOAD=$PWD/bin/libsigcheck.so zip 1.zip 1 > /dev/null
+runtest zip 1.zip 1
 rm -f 1 1.zip
 
-echo '== wget =='
-LD_PRELOAD=$PWD/bin/libsigcheck.so wget 'http://google.ru' > /dev/null
+runtest wget 'http://google.ru'
 rm -f index.html
 
-echo '== aspell =='
 echo 'Hello world' > 1
-LD_PRELOAD=$PWD/bin/libsigcheck.so aspell -c 1 > /dev/null
+runtest aspell -c 1
 rm -f 1
+
+echo 'Hello world' > 1
+echo 'Hello worldd' > 2
+runtest diff 1 2
+rm -f 1 2
+
+echo -e '1\n2' > 1
+runtest sort 1
+rm -f 1
+
+runtest make -d
+rm -f 1
+
+runtest calendar -A 10
+rm -f 1
+
+runtest gpg --list-public-keys
+rm -f 1
+
+runtest gdb -ex run -ex quit ls
 
