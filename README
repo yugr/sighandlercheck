@@ -29,7 +29,7 @@ To build the tool, simply run ./build.sh from project top directory.
 
 = Test =
 
-To test the tool, simply run scripts/test.sh from project top directory.
+To test the tool, simply run scripts/runtests.sh from project top directory.
 
 = TODO =
 
