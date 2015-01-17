@@ -10,6 +10,19 @@ whether they run in unsafe context.
 The tool is rather hacky but it was able to detect potential errors
 in popular programs (zip, aspell).
 
+= Why should I care about signal safety? =
+
+Check lcamtuf's "Delivering Signals for Fun and Profit"
+(available e.g. here: http://lcamtuf.coredump.cx/signals.txt).
+Basically unsafe signal handlers may be used to exploit enclosing process.
+This is particularly dangerous on Linux, where ordinary user can send signal
+to setuid process.
+
+= What are current results? =
+
+Quite interesting: I saw unsafe behavior in archivers (tar, bzip2, zip, etc.),
+Texinfo, aspell, make, calendar, gpg and gdb (see scripts/examples for details).
+
 = Usage =
 
 Preload the tool into your app and send it a signal.
