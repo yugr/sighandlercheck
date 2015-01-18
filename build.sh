@@ -8,10 +8,12 @@ set -e
 
 cd $(dirname $0)
 
-mkdir -p bin
-rm -f bin/*
+OBJ=bin
 
-scripts/gendefs.py bin/
+mkdir -p $OBJ
+rm -f $OBJ/*
+
+scripts/gendefs.py $OBJ/
 
 CPPFLAGS='-Iinclude -Ibin -D_GNU_SOURCE'
 
@@ -22,8 +24,10 @@ CFLAGS="$CFLAGS -fvisibility=hidden -fPIC -shared"
 
 LDFLAGS='-Wl,--no-as-needed -ldl -lm -lpthread'
 
-gcc -o bin/libsigcheck.so src/*.c $CPPFLAGS $CFLAGS $LDFLAGS
+gcc -o $OBJ/libsigcheck.so src/*.c $CPPFLAGS $CFLAGS $LDFLAGS
+
+cp scripts/sigcheck $OBJ
 
 # Quick check
-SIGCHECK_VERBOSE=1 LD_PRELOAD=bin/libsigcheck.so bash -c 'whoami; whoami'
+SIGCHECK_VERBOSE=1 $OBJ/sigcheck bash -c 'whoami; whoami'
 
