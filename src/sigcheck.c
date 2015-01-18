@@ -51,7 +51,15 @@ static volatile int num_errors = 0;
 
 static int verbose = 0;
 static int max_errors = -1;
-static int do_fork_tests = 0;
+
+enum fork_tests_mode {
+  FORK_TESTS_NONE,
+  FORK_TESTS_ATEXIT,
+  FORK_TESTS_ONSET
+};
+
+static enum fork_tests_mode fork_tests =
+  FORK_TESTS_NONE;
 
 static inline void push_signal_context(void) {
   assert(signal_depth >= 0 && "invalid nesting");
@@ -154,8 +162,14 @@ void __attribute__((constructor)) sigcheck_init_2(void) {
     max_errors = atoi(max_errors_);
 
   char *fork_tests_ = getenv("SIGCHECK_FORK_TESTS");
-  if(fork_tests_ && atoi(fork_tests_))
-    do_fork_tests = 1;
+  if(!fork_tests_ || 0 == strcmp(fork_tests_, "none"))
+    fork_tests = FORK_TESTS_NONE;
+  else if(0 == strcmp(fork_tests_, "atexit"))
+    fork_tests = FORK_TESTS_ATEXIT;
+  else if(0 == strcmp(fork_tests_, "onset"))
+    fork_tests = FORK_TESTS_ONSET;
+  else
+    DIE("unknown value for SIGCHECK_FORK_TESTS: ", fork_tests_);
 
   // TODO: can we force this to be run _before_ all other handlers?
   atexit(sigcheck_finalize);
@@ -181,6 +195,7 @@ static volatile struct sigcheck_info sigtab[_NSIG];
 static int is_deadly_signal(int signum) {
   switch(signum) {
   case SIGSEGV:
+  case SIGBUS:
   case SIGABRT:
   case SIGILL:
   case SIGTERM:
@@ -215,6 +230,23 @@ static void about_signal(int signum) {
   SAY_START("signal ", signum_str, " (", sig_str, "): ");
 }
 
+void fork_test(int signum) {
+  pid_t pid = fork();
+  if(pid < 0) {
+    DIE("failed to fork test process");
+  } else if(pid == 0) {
+    if(verbose) {
+      about_signal(signum);
+      SAY("sending in forked process\n");
+    }
+    raise(signum);
+    _exit(0);
+  } else {
+    if(waitpid(pid, 0, 0) < 0)
+      DIE("failed to wait for forked test process");
+  }
+}
+
 static void sigcheck_finalize(void) {
   int i;
   for(i = 0; i < _NSIG; ++i) {
@@ -224,22 +256,8 @@ static void sigcheck_finalize(void) {
       about_signal(i);
       SAY("is handled\n");
     }
-    if(do_fork_tests && is_interesting_signal(i)) {
-      pid_t pid = fork();
-      if(pid < 0) {
-	DIE("failed to fork test process");
-      } else if(pid == 0) {
-        if(verbose) {
-          about_signal(i);
-          SAY("sending in forked process\n");
-        }
-	raise(i);
-	_exit(0);
-      } else {
-	if(waitpid(pid, 0, 0) < 0)
-	  DIE("failed to wait for forked test process");
-      }
-    }
+    if(fork_tests == FORK_TESTS_ATEXIT && is_interesting_signal(i))
+      fork_test(i);
   }
 }
 
@@ -294,6 +312,7 @@ static void sigcheck(int signum, siginfo_t *info, void *ctx) {
   pop_signal_context();
 }
 
+// TODO: factor out common code from signal() and sigaction()
 EXPORT sighandler_t signal(int signum, sighandler_t handler) {
   static sighandler_t (*signal_real)(int signum, sighandler_t handler) = 0;
   if(!signal_real) {
@@ -380,6 +399,9 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
   int res = sigaction_real(signum, act, oldact);
   if(res != 0)
     *si = si_old;
+  else if(fork_tests == FORK_TESTS_ONSET) {
+    fork_test(signum);
+  }
 
   return res;
 }

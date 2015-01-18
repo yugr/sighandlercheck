@@ -4,16 +4,17 @@
 
 cd $(dirname $0)/..
 
-LIBSIGCHECK=$PWD/bin/libsigcheck.so
+SIGCHECK=bin/sigcheck
 
 runtest() {
-  echo "$ $@"
-  SIGCHECK_FORK_TESTS=1 SIGCHECK_OUTPUT_FILENO=3 \
-    LD_PRELOAD=$PWD/bin/libsigcheck.so \
-    "$@" 3>&1 >/dev/null 2>&1
-}
+  echo "$@ (atexit)"
+  SIGCHECK_FORK_TESTS=atexit SIGCHECK_OUTPUT_FILENO=3 \
+    timeout 5 $SIGCHECK "$@" 3>&1 >/dev/null 2>&1
 
-export SIGCHECK_FORK_TESTS=1
+  echo "$@ (onset)"
+  SIGCHECK_FORK_TESTS=onset SIGCHECK_OUTPUT_FILENO=3 \
+    timeout 5 $SIGCHECK "$@" 3>&1 >/dev/null 2>&1
+}
 
 runtest ls
 

@@ -25,9 +25,15 @@ Texinfo, aspell, make, calendar, gpg and gdb (see scripts/examples for details).
 
 = Usage =
 
-Preload the tool into your app and send it a signal.
-The latter can be automated by setting SIGCHECK_FORK_TESTS
-environment variable to non-zero value.
+Run your app under sigcheck tool and send it a signal:
+ $ sigcheck myapp ... > /dev/null &
+ $ kill -HUP $!
+
+Instead of manually sending the signals, you can ask the tool to automate it
+by setting SIGCHECK_FORK_TESTS environment variable to "atexit"
+(to send signals prior to exiting program) or to "onset"
+(to send signal immediately after it got set). Both may find different sets of bugs
+for different applications.
 
 Other influential environment variables:
 * SIGCHECK_VERBOSE       - print debug info
