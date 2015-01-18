@@ -3,6 +3,7 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdarg.h>
 
 #include <dlfcn.h>
 #include <unistd.h>
@@ -18,33 +19,39 @@ static int sigcheck_fd = -1;
 int sigcheck_initialized = 0,
   sigcheck_initializing = 0;
 
-// TODO: better verbose prints.
-// TODO: make this a function?
+// TODO: more verbose prints.
+// TODO: add missing error checks
+// TODO: mind thread safety in all functions
 
-#define WRITE(...) do { \
-    const char *_ss[] = { "",##__VA_ARGS__, 0 }, **_p; \
-    for(_p = &_ss[0]; *_p; ++_p) { \
-      int _fd = sigcheck_fd >= 0 ? sigcheck_fd : STDERR_FILENO; \
-      size_t _len = internal_strlen(*_p); \
-      ssize_t UNUSED _n = write(_fd, *_p, _len); \
-    } \
-  } while(0)
+static void sigcheck_print(const char *msg, ...) {
+  va_list ap;
+
+  int fd = sigcheck_fd >= 0 ? sigcheck_fd : STDERR_FILENO;
+
+  va_start(ap, msg);
+  const char *s;
+  for(s = msg; s; s = va_arg(ap, const char *)) {
+    size_t len = internal_strlen(s);
+    while(len > 0) {
+      ssize_t n = write(fd, s, len);
+      len -= n;
+      s += n;
+    }
+  }
+  va_end(ap);
+}
 
 #define SAY_START(...) do { \
     char buf[128]; \
     const char *pid = sigcheck_initialized ? int2str((int)getpid(), buf, sizeof(buf)) : "???"; \
-    WRITE("sigcheck (pid ", pid, "): ",##__VA_ARGS__); \
+    sigcheck_print("sigcheck (pid ", pid, "): ",##__VA_ARGS__, NULL); \
   } while(0)
-#define SAY(...) WRITE(__VA_ARGS__)
+#define SAY(...) sigcheck_print(__VA_ARGS__, NULL)
 
-// TODO: syscall exit?
 #define DIE(...) do { \
     SAY_START("internal error: ",##__VA_ARGS__, "\n"); \
-    while(1); \
+    internal__exit(1); \
   } while(0)
-
-// TODO: add missing error checks
-// TODO: mind thread safety in all functions
 
 static volatile int signal_depth = 0;
 static volatile int num_errors = 0;
@@ -230,7 +237,8 @@ static void about_signal(int signum) {
   SAY_START("signal ", signum_str, " (", sig_str, "): ");
 }
 
-void fork_test(int signum) {
+void fork_signal_test(int signum) {
+  // TODO: temporarily disable SIGCHLD in parent
   pid_t pid = fork();
   if(pid < 0) {
     DIE("failed to fork test process");
@@ -257,7 +265,7 @@ static void sigcheck_finalize(void) {
       SAY("is handled\n");
     }
     if(fork_tests == FORK_TESTS_ATEXIT && is_interesting_signal(i))
-      fork_test(i);
+      fork_signal_test(i);
   }
 }
 
@@ -400,7 +408,7 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
   if(res != 0)
     *si = si_old;
   else if(fork_tests == FORK_TESTS_ONSET) {
-    fork_test(signum);
+    fork_signal_test(signum);
   }
 
   return res;

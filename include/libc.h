@@ -2,6 +2,17 @@
 #define LIBC_H
 
 #include <stdlib.h>  // size_t
+#include <asm-generic/unistd.h>
+
+static __attribute__((noreturn)) void internal__exit(int status) {
+  asm(
+    "mov %0, %%rdi\n"
+    "mov %1, %%eax\n"
+    "syscall\n"
+    :: "i"(__NR_exit), "r"(status)
+  );
+  while(1);
+}
 
 static inline size_t internal_strlen(const char *s) {
   size_t n;
