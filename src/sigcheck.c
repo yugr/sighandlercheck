@@ -237,8 +237,17 @@ static void about_signal(int signum) {
   SAY_START("signal ", signum_str, " (", sig_str, "): ");
 }
 
-void fork_signal_test(int signum) {
-  // TODO: temporarily disable SIGCHLD in parent
+static volatile int suppress_sigchld;
+
+void maybe_fork_signal_test(int signum) {
+  if(!is_interesting_signal(signum))
+    return;
+  sigset_t mask;
+  sigemptyset(&mask);
+  // TODO: pthread_mask? But it's not async-signal-safe...
+  if(0 != sigprocmask(0, 0, &mask) || sigismember(&mask, signum))
+    return;
+  suppress_sigchld = 1;
   pid_t pid = fork();
   if(pid < 0) {
     DIE("failed to fork test process");
@@ -253,6 +262,7 @@ void fork_signal_test(int signum) {
     if(waitpid(pid, 0, 0) < 0)
       DIE("failed to wait for forked test process");
   }
+  suppress_sigchld = 0;
 }
 
 static void sigcheck_finalize(void) {
@@ -264,8 +274,9 @@ static void sigcheck_finalize(void) {
       about_signal(i);
       SAY("is handled\n");
     }
-    if(fork_tests == FORK_TESTS_ATEXIT && is_interesting_signal(i))
-      fork_signal_test(i);
+    if(fork_tests == FORK_TESTS_ATEXIT) {
+      maybe_fork_signal_test(i);
+    }
   }
 }
 
@@ -297,9 +308,13 @@ void check_context(const char *name, const char *lib) {
 #define BAD_ERRNO 0x12345
 
 static void sigcheck(int signum, siginfo_t *info, void *ctx) {
+  if(signum == SIGCHLD && suppress_sigchld)
+    return;
+
   volatile struct sigcheck_info *si = &sigtab[signum];
   if(!si->user_handler.h)
     DIE("received signal but no handler");
+
   push_signal_context();
   si->active = 1;
   int old_errno = errno;
@@ -407,8 +422,8 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
   int res = sigaction_real(signum, act, oldact);
   if(res != 0)
     *si = si_old;
-  else if(fork_tests == FORK_TESTS_ONSET) {
-    fork_signal_test(signum);
+  else if(fork_tests == FORK_TESTS_ONSET && si->is_handled) {
+    maybe_fork_signal_test(signum);
   }
 
   return res;
@@ -416,4 +431,7 @@ EXPORT int sigaction(int signum, const struct sigaction *act, struct sigaction *
 
 DEFINE_ALIAS(EXPORT sighandler_t sysv_signal(int signum, sighandler_t handler), signal);
 DEFINE_ALIAS(EXPORT sighandler_t bsd_signal(int signum, sighandler_t handler), signal);
+
+// TODO: intercept sigprocmask and pthreadmask and fork tests
+// if signal is enabled
 
