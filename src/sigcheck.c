@@ -252,11 +252,14 @@ void maybe_fork_signal_test(int signum) {
   if(pid < 0) {
     DIE("failed to fork test process");
   } else if(pid == 0) {
+    // TODO: ensure that child always terminates
     if(verbose) {
       about_signal(signum);
       SAY("sending in forked process\n");
     }
-    raise(signum);
+    if(0 != raise(signum)) {
+      SAY("raise() failed");
+    }
     _exit(0);
   } else {
     if(waitpid(pid, 0, 0) < 0)
