@@ -1,4 +1,4 @@
-= What is this? =
+# What is this?
 
 Signal Checker is a small proof-of-concept tool for detecting
 unsafe signal handlers. C standard requires signal handlers
@@ -11,7 +11,7 @@ whether they run in unsafe context.
 The tool is rather hacky but it was able to detect potential errors
 in popular programs (zip, aspell).
 
-= Why should I care about signal safety? =
+# Why should I care about signal safety?
 
 Check lcamtuf's "Delivering Signals for Fun and Profit"
 (available e.g. here: http://lcamtuf.coredump.cx/signals.txt) or CWE's
@@ -22,12 +22,12 @@ Basically unsafe signal handlers may be used to exploit enclosing process.
 This is particularly dangerous on Linux, where ordinary user can send signal
 to setuid process.
 
-= What are current results? =
+# What are current results?
 
 Quite interesting: I saw unsafe behavior in archivers (tar, bzip2, zip, etc.),
 Texinfo, aspell, make, calendar, gpg and gdb (see scripts/examples for details).
 
-= Usage =
+# Usage
 
 Run your app under sigcheck tool and send it a signal:
  $ sigcheck myapp ... > /dev/null &
@@ -46,22 +46,21 @@ Other influential environment variables:
 
 For some examples, see scripts/examples.
 
-= Build =
+# Build
 
 To build the tool, simply run ./build.sh from project top directory.
 I've only tested it on Ubuntu 14...
 
-= Test =
+# Test
 
 To test the tool, run scripts/runtests.sh from project top directory.
 Real-world examples are available in scripts/examples.
 
-= TODO =
+# TODO
 
 Various TODOs are scattered all over the codebase. The main high-level
 items:
-* run a complete distribution under this (e.g. by putting
-  libsigcheck.so to /etc/ld.so.preload)
+* run a complete distribution under this (e.g. by putting libsigcheck.so to /etc/ld.so.preload)
 * design (basically whether all this should be rewritten to use uprobes)
 * interception of libc is ugly ugly (although efficient)
 * make code thread-safe
