@@ -28,6 +28,6 @@ gcc -o $OBJ/libsigcheck.so src/*.c $CPPFLAGS $CFLAGS $LDFLAGS
 
 cp scripts/sigcheck $OBJ
 
-# Quick check
+echo 'Quick functionality check'
 SIGCHECK_VERBOSE=1 $OBJ/sigcheck bash -c 'whoami; whoami'
 

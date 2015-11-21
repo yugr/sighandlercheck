@@ -7,14 +7,21 @@ cd $(dirname $0)/..
 SIGCHECK=bin/sigcheck
 
 runtest() {
-  echo "$@ (atexit)"
+  if ! which $1; then
+    echo "$1 not installed, can't test \"$@\""
+    return 1
+  fi
+
+  echo "Checking \"$@\" (atexit)"
   SIGCHECK_FORK_TESTS=atexit SIGCHECK_OUTPUT_FILENO=3 \
     timeout 5 $SIGCHECK "$@" 3>&1 >/dev/null 2>&1
 
-  echo "$@ (onset)"
+  echo "Checking \"$@\" (onset)"
   SIGCHECK_FORK_TESTS=onset SIGCHECK_OUTPUT_FILENO=3 \
     timeout 5 $SIGCHECK "$@" 3>&1 >/dev/null 2>&1
 }
+
+#runtest hahaha
 
 runtest ls
 
@@ -44,7 +51,7 @@ runtest zip 1.zip 1
 rm -f 1 1.zip
 
 runtest wget 'http://google.ru'
-rm -f index.html
+rm -f index.html*
 
 echo 'Hello world' > 1
 runtest aspell -c 1
