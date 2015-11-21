@@ -50,6 +50,7 @@ def get_public_funs(lib, filename):
       continue
 
     # Skip internal functions
+    # TODO: __libc_memalign is _not_ private!
     if re.search(r'GLIBC_PRIVATE|^__libc_|__errno_location', line):
       continue
 
