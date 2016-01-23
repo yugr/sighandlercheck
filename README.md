@@ -2,7 +2,7 @@
 
 Signal Checker is a small proof-of-concept tool for detecting
 unsafe signal handlers. C standard requires signal handlers
-to only call reentrant subset of libc
+to only call reentrant subset of libc.
 
 The tool works by preloading a DSO (libsigcheck.so) to a process.
 The DSO intercepts all (!) libc functions. The interceptors check
@@ -10,6 +10,9 @@ whether they run in unsafe context.
 
 The tool is rather hacky but it was able to detect potential errors
 in popular programs (zip, aspell).
+
+All credits for the idea (but not for it's ugly implementation)
+should go to Michal Zalewski (aka [lcamtuf](http://lcamtuf.coredump.cx)).
 
 # Why should I care about signal safety?
 
