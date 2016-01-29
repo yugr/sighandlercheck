@@ -14,6 +14,9 @@ in popular programs (zip, aspell).
 All credits for the idea (but not for it's ugly implementation)
 should go to Michal Zalewski (aka [lcamtuf](http://lcamtuf.coredump.cx)).
 
+The project is MIT licensed. It does not have any fancy dependencies,
+just Glibc, GCC and Python.
+
 # Why should I care about signal safety?
 
 Check lcamtuf's [Delivering Signals for Fun and Profit]
@@ -33,38 +36,42 @@ Texinfo, aspell, make, calendar, gpg and gdb (see scripts/examples for details).
 # Usage
 
 Run your app under sigcheck tool and send it a signal:
+
+```
  $ sigcheck myapp ... > /dev/null &
  $ kill -HUP $!
+```
 
 Instead of manually sending the signals, you can ask the tool to automate it
-by setting SIGCHECK_FORK_TESTS environment variable to "atexit"
+by setting SIGCHECK\_FORK\_TESTS environment variable to "atexit"
 (to send signals prior to exiting program) or to "onset"
 (to send signal immediately after it got set). Both may find different sets of
 bugs for different applications.
 
 Other influential environment variables:
-* SIGCHECK_VERBOSE       - print debug info
-* SIGCHECK_MAX_ERRORS    - limit number of reported errors
-* SIGCHECK_OUTPUT_FILENO - output file descriptor (TODO: make this a filename?)
+* SIGCHECK\_VERBOSE        - print debug info
+* SIGCHECK\_MAX\_ERRORS     - limit number of reported errors
+* SIGCHECK\_OUTPUT\_FILENO - output file descriptor (TODO: make this a filename?)
 
 For some examples, see scripts/examples.
 
 # Build
 
 To build the tool, simply run ./build.sh from project top directory.
-I've only tested it on Ubuntu 14...
+This has only been tested in Ubuntu 14.04.
 
 # Test
 
 To test the tool, run scripts/runtests.sh from project top directory.
 Real-world examples are available in scripts/examples.
 
-# TODO
+# Future plans
 
-Various TODOs are scattered all over the codebase. The main high-level
-items:
-* run a complete distribution under this (e.g. by putting libsigcheck.so to /etc/ld.so.preload)
+The main high-level items are
+* run a complete distro under this (e.g. by putting libsigcheck.so to /etc/ld.so.preload)
 * design (basically whether all this should be rewritten to use uprobes)
 * interception of libc is ugly ugly (although efficient)
 * make code thread-safe
+
+Also various TODOs are scattered all over the codebase.
 
