@@ -1,3 +1,8 @@
+# Copyright 2015-2016 Yury Gribov
+# 
+# Use of this source code is governed by MIT license that can be
+# found in the LICENSE.txt file.
+
 # POSIX.1-2004 (according to `man 7 signal')
 _Exit
 _exit
