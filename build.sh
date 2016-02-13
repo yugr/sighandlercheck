@@ -29,6 +29,7 @@ CFLAGS="$CFLAGS -fvisibility=hidden -fPIC -shared"
 
 LDFLAGS='-Wl,--no-as-needed -ldl -lm -lpthread'
 
+echo 'Build libsigcheck.so'
 gcc -o $OBJ/libsigcheck.so src/*.c $CPPFLAGS $CFLAGS $LDFLAGS
 
 cp scripts/sigcheck $OBJ
