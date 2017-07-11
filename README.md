@@ -19,10 +19,8 @@ just Glibc, GCC and Python.
 
 # Why should I care about signal safety?
 
-Check lcamtuf's [Delivering Signals for Fun and Profit]
-(http://lcamtuf.coredump.cx/signals.txt) or CWE's
-[Signal Handler with Functionality that is not Asynchronous-Safe]
-(https://cwe.mitre.org/data/definitions/828.html).
+Check lcamtuf's [Delivering Signals for Fun and Profit](http://lcamtuf.coredump.cx/signals.txt) or CWE's
+[Signal Handler with Functionality that is not Asynchronous-Safe](https://cwe.mitre.org/data/definitions/828.html).
 
 Basically unsafe signal handlers may be used to exploit enclosing process.
 This is particularly dangerous on Linux, where ordinary user can send signal
