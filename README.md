@@ -2,7 +2,7 @@
 
 Signal Checker is a small proof-of-concept tool for detecting
 unsafe signal handlers. C standard requires signal handlers
-to only call reentrant subset of libc (see CERT's [SIG30-C](https://wiki.sei.cmu.edu/confluence/display/c/SIG30-C.+Call+only+asynchronous-safe+functions+within+signal+handlers) for more details).
+to only call reentrant subset of libc (see CERT's [SIG30-C](https://wiki.sei.cmu.edu/confluence/display/c/SIG30-C.+Call+only+asynchronous-safe+functions+within+signal+handlers) for more details and real-world vulnerabilities).
 
 The tool works by preloading a DSO (libsigcheck.so) to a process.
 The DSO intercepts all (!) libc functions. The interceptors check
