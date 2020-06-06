@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright 2015-2016 Yury Gribov
+# Copyright 2015-2020 Yury Gribov
 # 
 # Use of this source code is governed by MIT license that can be
 # found in the LICENSE.txt file.
@@ -24,12 +24,12 @@ def safe_run(cmd):
   p = subprocess.Popen(cmd, stdout = subprocess.PIPE)
   res = p.communicate()
   if p.returncode != 0:
-    (_, stderr) = res
+    _, stderr = res
     error("%s failed: %s" % (cmd[0], stderr))
   return res
 
 def find_glibc():
-  (stdout, stderr) = safe_run(['ldd', '/bin/sh'])
+  stdout, stderr = safe_run(['ldd', '/bin/sh'])
   libc_name = 'libc.so.6'
   for line in stdout.split('\n'):
     idx = line.find(libc_name + ' => ')
@@ -46,7 +46,7 @@ def find_glibc():
   error('failed to locate ' + libc_name)
 
 def get_public_funs(lib, filename):
-  (stdout, stderr) = safe_run(['readelf', '--dyn-syms', '-W', filename])
+  stdout, stderr = safe_run(['readelf', '--dyn-syms', '-W', filename])
 
   res = []
   for line in stdout.split('\n'):
@@ -90,7 +90,7 @@ if len(sys.argv) != 2:
   error('invalid syntax')
 out = sys.argv[1]
 
-(libroot, libver) = find_glibc()
+libroot, libver = find_glibc()
 
 # TODO: other parts of glibc: crypt, resolv, dl, rt, nss*, nsl, etc.)?
 # See http://www.faqs.org/docs/linux_scratch/appendixa/glibc.html
@@ -100,7 +100,7 @@ libs = map(
 )
 
 syms = []
-for (lib, filename) in libs:
+for lib, filename in libs:
   syms += get_public_funs(lib, os.path.join(libroot, filename))
 
 async_safe_syms = open(os.path.join(script_dir, 'async_safe_syms')).read().split('\n')
@@ -122,7 +122,7 @@ f.write('''
 #error You must define SYMBOL(name, addr, lib)
 #endif
 ''')
-for (name, addr, lib) in syms_no_dups:
+for name, addr, lib in syms_no_dups:
   f.write("SYMBOL(%s, 0x%x, %s)\n" % (name, addr, lib))
 f.write("#undef SYMBOL\n")
 f.close()
@@ -133,7 +133,7 @@ f.write('''
 #error You must define LIBRARY(name, filename)
 #endif
 ''')
-for (name, filename) in libs:
+for name, filename in libs:
   f.write('LIBRARY(%s, "%s")\n' % (name, filename))
 f.write('#undef LIBRARY\n')
 f.close()
